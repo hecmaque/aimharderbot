@@ -44,36 +44,45 @@ jobs:
           python3 <<'PY' > /tmp/aimharderbot-config/example_config.yaml
           import json, os
 
-          goals_text = os.environ.get("AIMHARDER_BOOKING_GOALS", "").strip()
-          if not goals_text:
-              raise SystemExit(
-                  "AIMHARDER_BOOKING_GOALS secret is missing or empty. "
-                  "Set it to a JSON array like '[\"monday,0730,Funcional\", ...]'."
-              )
+          secrets = {
+              'AIMHARDER_EMAIL': os.environ.get('AIMHARDER_EMAIL', '').strip(),
+              'AIMHARDER_PASSWORD': os.environ.get('AIMHARDER_PASSWORD', '').strip(),
+              'AIMHARDER_BOX_NAME': os.environ.get('AIMHARDER_BOX_NAME', '').strip(),
+              'AIMHARDER_BOX_ID': os.environ.get('AIMHARDER_BOX_ID', '').strip(),
+              'AIMHARDER_HOURS_IN_ADVANCE': os.environ.get('AIMHARDER_HOURS_IN_ADVANCE', '').strip(),
+              'AIMHARDER_BOOKING_GOALS': os.environ.get('AIMHARDER_BOOKING_GOALS', '').strip(),
+          }
+
+          missing = [k for k, v in secrets.items() if not v]
+          if missing:
+              raise SystemExit(f"Missing secrets: {', '.join(missing)}")
+
           try:
-              goals = json.loads(goals_text)
+              goals = json.loads(secrets['AIMHARDER_BOOKING_GOALS'])
           except json.JSONDecodeError as ex:
-              raise SystemExit(
-                  f"AIMHARDER_BOOKING_GOALS is not valid JSON: {ex.msg}"
-              )
+              raise SystemExit(f"AIMHARDER_BOOKING_GOALS is not valid JSON: {ex.msg}")
+
+          if not isinstance(goals, list) or not goals:
+              raise SystemExit("AIMHARDER_BOOKING_GOALS must be a non-empty JSON array.")
 
           lines = [
               "-  user1:",
-              "      box-name: {}".format(os.environ["AIMHARDER_BOX_NAME"]),
-              "      box-id: {}".format(os.environ["AIMHARDER_BOX_ID"]),
-              "      email: {}".format(os.environ["AIMHARDER_EMAIL"]),
-              "      password: {}".format(os.environ["AIMHARDER_PASSWORD"]),
+              f"      box-name: {secrets['AIMHARDER_BOX_NAME']}",
+              f"      box-id: {secrets['AIMHARDER_BOX_ID']}",
+              f"      email: {secrets['AIMHARDER_EMAIL']}",
+              f"      password: {secrets['AIMHARDER_PASSWORD']}",
               "      booking-goals:",
           ]
           for goal in goals:
-              lines.append("        - {}".format(goal))
+              lines.append(f"        - {goal}")
           lines.extend([
-              "      hours-in-advance: {}".format(os.environ["AIMHARDER_HOURS_IN_ADVANCE"]),
+              f"      hours-in-advance: {secrets['AIMHARDER_HOURS_IN_ADVANCE']}",
               "      exceptions: {}",
           ])
-          with open("/tmp/aimharderbot-config/example_config.yaml", "w") as f:
-              f.write("\n".join(lines) + "\n")
+          with open('/tmp/aimharderbot-config/example_config.yaml', 'w') as f:
+              f.write('\n'.join(lines) + '\n')
           PY
+          cat /tmp/aimharderbot-config/example_config.yaml
           docker run --rm \
             -v /tmp/aimharderbot-config:/usr/src/app/config \
             --name aimharderbot-scheduled \

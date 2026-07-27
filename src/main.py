@@ -59,6 +59,21 @@ def create_folder_if_not_exists(folder):
     if not os.path.exists(folder):
         os.makedirs(folder)
 
+
+def parse_int_config_value(name: str, value) -> int:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            raise ValueError(f"Configuration '{name}' is empty.")
+        if not raw.isdigit():
+            raise ValueError(f"Configuration '{name}' must be an integer, got '{value}'.")
+        return int(raw)
+
+    raise ValueError(f"Configuration '{name}' has invalid type {type(value).__name__}.")
+
+
 def get_booking_goal(booking_goals: list[str], hours_in_advance: int) -> tuple[datetime, str, str, bool]:
 
     # today = datetime(2025,2,8,20,2,0,000000)
@@ -150,7 +165,16 @@ def parse_config_params(config):
         box_id = config["box-id"]
         booking_goals = config["booking-goals"]
         exceptions = config.get("exceptions")
-        hours_in_advance = config["hours-in-advance"]
+        hours_in_advance = parse_int_config_value("hours-in-advance", config["hours-in-advance"])
+
+        if not isinstance(booking_goals, list) or not booking_goals:
+            raise ValueError("Configuration 'booking-goals' must be a non-empty list of strings.")
+
+        logger.debug(
+            f"Parsed config: email={email}, box_name={box_name}, box_id={box_id}, "
+            f"hours_in_advance={hours_in_advance}, booking_goals={booking_goals}"
+        )
+
         return (
             email,
             password,
@@ -161,7 +185,7 @@ def parse_config_params(config):
             hours_in_advance,
         )
     except Exception as e:
-        logger.error(f"{user_name} - Error parsing configuration parameters: {e}")
+        logger.error(f"Error parsing configuration parameters: {e}")
         raise e
 
 def main(current_user, configuration):
