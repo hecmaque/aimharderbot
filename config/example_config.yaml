@@ -1,8 +1,8 @@
 -  user1:
     box-name: crossboxelfaro
     box-id: 10181
-    email: lll.imp@gmail.com
-    password: contraseña
+    email: your-email@example.com
+    password: YourPasswordHere
     booking-goals:
       - monday,0730,Funcional
       - tuesday,0730,Funcional
