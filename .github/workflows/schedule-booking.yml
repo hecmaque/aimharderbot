@@ -2,7 +2,7 @@ name: Schedule AimHarder booking
 
 on:
   schedule:
-    - cron: '30 7 * * *' # every day at 07:30 UTC
+    - cron: '6 16 * * *' # every day at 16:06 UTC (18:06 CEST Spain time)
   workflow_dispatch: {}
 
 jobs:
