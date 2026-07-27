@@ -41,7 +41,9 @@ jobs:
           AIMHARDER_BOOKING_GOALS: ${{ secrets.AIMHARDER_BOOKING_GOALS }}
         run: |
           mkdir -p /tmp/aimharderbot-config
-          python3 -c 'import json, os
+          python3 <<'PY' > /tmp/aimharderbot-config/example_config.yaml
+          import json, os
+
           goals = json.loads(os.environ["AIMHARDER_BOOKING_GOALS"])
           lines = [
               "-  user1:",
@@ -57,7 +59,9 @@ jobs:
               "      hours-in-advance: {}".format(os.environ["AIMHARDER_HOURS_IN_ADVANCE"]),
               "      exceptions: {}",
           ])
-          open("/tmp/aimharderbot-config/example_config.yaml", "w").write("\n".join(lines) + "\n")'
+          with open("/tmp/aimharderbot-config/example_config.yaml", "w") as f:
+              f.write("\n".join(lines) + "\n")
+          PY
           docker run --rm \
             -v /tmp/aimharderbot-config:/usr/src/app/config \
             --name aimharderbot-scheduled \
