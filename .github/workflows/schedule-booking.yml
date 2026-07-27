@@ -41,24 +41,23 @@ jobs:
           AIMHARDER_BOOKING_GOALS: ${{ secrets.AIMHARDER_BOOKING_GOALS }}
         run: |
           mkdir -p /tmp/aimharderbot-config
-          cat > /tmp/aimharderbot-config/example_config.yaml <<'EOF'
--  user1:
-      box-name: ${AIMHARDER_BOX_NAME}
-      box-id: ${AIMHARDER_BOX_ID}
-      email: ${AIMHARDER_EMAIL}
-      password: ${AIMHARDER_PASSWORD}
-      booking-goals:
-$(python3 - <<'PY'
-import os, json
-
-goals = json.loads(os.environ['AIMHARDER_BOOKING_GOALS'])
-for goal in goals:
-    print('        - ' + goal)
-PY
-)
-      hours-in-advance: ${AIMHARDER_HOURS_IN_ADVANCE}
-      exceptions: {}
-EOF
+          python3 -c 'import json, os
+          goals = json.loads(os.environ["AIMHARDER_BOOKING_GOALS"])
+          lines = [
+              "-  user1:",
+              "      box-name: {}".format(os.environ["AIMHARDER_BOX_NAME"]),
+              "      box-id: {}".format(os.environ["AIMHARDER_BOX_ID"]),
+              "      email: {}".format(os.environ["AIMHARDER_EMAIL"]),
+              "      password: {}".format(os.environ["AIMHARDER_PASSWORD"]),
+              "      booking-goals:",
+          ]
+          for goal in goals:
+              lines.append("        - {}".format(goal))
+          lines.extend([
+              "      hours-in-advance: {}".format(os.environ["AIMHARDER_HOURS_IN_ADVANCE"]),
+              "      exceptions: {}",
+          ])
+          open("/tmp/aimharderbot-config/example_config.yaml", "w").write("\n".join(lines) + "\n")'
           docker run --rm \
             -v /tmp/aimharderbot-config:/usr/src/app/config \
             --name aimharderbot-scheduled \
