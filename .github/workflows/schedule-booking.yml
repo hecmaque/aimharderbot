@@ -73,18 +73,18 @@ jobs:
               raise SystemExit("AIMHARDER_BOOKING_GOALS must be a non-empty JSON array.")
 
           lines = [
-              "-  user1:",
-              f"      box-name: {secrets['AIMHARDER_BOX_NAME']}",
-              f"      box-id: {secrets['AIMHARDER_BOX_ID']}",
-              f"      email: {secrets['AIMHARDER_EMAIL']}",
-              f"      password: {secrets['AIMHARDER_PASSWORD']}",
-              "      booking-goals:",
+              "user1:",
+              f"  box-name: {secrets['AIMHARDER_BOX_NAME']}",
+              f"  box-id: {secrets['AIMHARDER_BOX_ID']}",
+              f"  email: {secrets['AIMHARDER_EMAIL']}",
+              f"  password: {secrets['AIMHARDER_PASSWORD']}",
+              "  booking-goals:",
           ]
           for goal in goals:
-              lines.append(f"        - {goal}")
+              lines.append(f"    - {goal}")
           lines.extend([
-              f"      hours-in-advance: {secrets['AIMHARDER_HOURS_IN_ADVANCE']}",
-              "      exceptions: {}",
+              f"  hours-in-advance: {secrets['AIMHARDER_HOURS_IN_ADVANCE']}",
+              "  exceptions: {}",
           ])
           with open('/tmp/aimharderbot-config/example_config.yaml', 'w') as f:
               f.write('\n'.join(lines) + '\n')
