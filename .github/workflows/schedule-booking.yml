@@ -53,9 +53,16 @@ jobs:
               'AIMHARDER_BOOKING_GOALS': os.environ.get('AIMHARDER_BOOKING_GOALS', '').strip(),
           }
 
-          missing = [k for k, v in secrets.items() if not v]
+          if not secrets['AIMHARDER_HOURS_IN_ADVANCE']:
+              secrets['AIMHARDER_HOURS_IN_ADVANCE'] = os.environ.get('HOURS_IN_ADVANCE', '').strip()
+
+          missing = [k for k, v in secrets.items() if not v and k != 'AIMHARDER_HOURS_IN_ADVANCE']
           if missing:
               raise SystemExit(f"Missing secrets: {', '.join(missing)}")
+
+          if not secrets['AIMHARDER_HOURS_IN_ADVANCE']:
+              print('WARNING: HOURS_IN_ADVANCE secret not found; using default 24')
+              secrets['AIMHARDER_HOURS_IN_ADVANCE'] = '24'
 
           try:
               goals = json.loads(secrets['AIMHARDER_BOOKING_GOALS'])
