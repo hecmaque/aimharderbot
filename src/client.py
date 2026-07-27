@@ -88,8 +88,18 @@ class AimHarderClient:
                 "familyId": "",
             },
         )
-        bookings = response.json().get("bookings")
+        bookings = response.json().get("bookings", [])
         self.logger.info(f"Retrieved {len(bookings)} classes for day {target_day.strftime('%Y-%m-%d')}")
+        for booking in bookings:
+            self.logger.debug(
+                "Class: id=%s timeid=%s name=%s bookState=%s ocupation=%s limit=%s",
+                booking.get("id"),
+                booking.get("timeid"),
+                booking.get("className"),
+                booking.get("bookState"),
+                booking.get("ocupation"),
+                booking.get("limit"),
+            )
         return bookings
 
     def book_class(self, target_day: datetime, target_class: str) -> bool:
