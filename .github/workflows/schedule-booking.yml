@@ -44,7 +44,19 @@ jobs:
           python3 <<'PY' > /tmp/aimharderbot-config/example_config.yaml
           import json, os
 
-          goals = json.loads(os.environ["AIMHARDER_BOOKING_GOALS"])
+          goals_text = os.environ.get("AIMHARDER_BOOKING_GOALS", "").strip()
+          if not goals_text:
+              raise SystemExit(
+                  "AIMHARDER_BOOKING_GOALS secret is missing or empty. "
+                  "Set it to a JSON array like '[\"monday,0730,Funcional\", ...]'."
+              )
+          try:
+              goals = json.loads(goals_text)
+          except json.JSONDecodeError as ex:
+              raise SystemExit(
+                  f"AIMHARDER_BOOKING_GOALS is not valid JSON: {ex.msg}"
+              )
+
           lines = [
               "-  user1:",
               "      box-name: {}".format(os.environ["AIMHARDER_BOX_NAME"]),
