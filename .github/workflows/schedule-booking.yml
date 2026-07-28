@@ -47,6 +47,11 @@ jobs:
           if not secrets['AIMHARDER_HOURS_IN_ADVANCE']:
               secrets['AIMHARDER_HOURS_IN_ADVANCE'] = clean_secret('HOURS_IN_ADVANCE')
 
+          # Restaurada la asignación por defecto a 24h si el secreto está vacío
+          if not secrets['AIMHARDER_HOURS_IN_ADVANCE']:
+              print('WARNING: HOURS_IN_ADVANCE secret not found; using default 24')
+              secrets['AIMHARDER_HOURS_IN_ADVANCE'] = '24'
+
           try:
               goals = json.loads(secrets['AIMHARDER_BOOKING_GOALS'])
           except json.JSONDecodeError as ex:
