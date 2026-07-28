@@ -2,8 +2,8 @@ name: Aimharder Bot Schedule
 
 on:
   schedule:
-    # Levantamos la máquina con margen: 05:25 UTC (07:25h CEST en España)
-    - cron: '25 5 * * *'
+    # Levantamos la máquina con margen: 17:55 UTC (19:55h CEST en España)
+    - cron: '55 17 * * *'
   workflow_dispatch:
 
 jobs:
@@ -47,7 +47,7 @@ jobs:
           if not secrets['AIMHARDER_HOURS_IN_ADVANCE']:
               secrets['AIMHARDER_HOURS_IN_ADVANCE'] = clean_secret('HOURS_IN_ADVANCE')
 
-          # Restaurada la asignación por defecto a 24h si el secreto está vacío
+          # Salvaguarda: Asignación por defecto a 24h si el secreto está vacío
           if not secrets['AIMHARDER_HOURS_IN_ADVANCE']:
               print('WARNING: HOURS_IN_ADVANCE secret not found; using default 24')
               secrets['AIMHARDER_HOURS_IN_ADVANCE'] = '24'
@@ -73,21 +73,20 @@ jobs:
               json.dump(config_dict, f, indent=2)
           PY
 
-      # ---- EL TRUCO PARA SER EL PRIMERO ----
+      # ---- EL TRUCO PARA SER EL PRIMERO (PRUEBA A LAS 20:00) ----
       - name: Wait for exact booking time
         run: |
-          # Queremos lanzar el ataque a las 05:29:58 UTC (07:29:58 en España).
-          # Damos 2 segundos de margen para que Docker arranque.
-          TARGET_TIME=$(date -d "05:29:58" +%s)
+          # Lanzamos el ataque a las 17:59:58 UTC (19:59:58 en España).
+          TARGET_TIME=$(date -d "17:59:58" +%s)
           CURRENT_TIME=$(date +%s)
           SLEEP_TIME=$((TARGET_TIME - CURRENT_TIME))
           
           if [ $SLEEP_TIME -gt 0 ]; then
-            echo "⏱️ El runner se ha levantado temprano. Esperando $SLEEP_TIME segundos hasta las 07:29:58..."
+            echo "⏱️ El runner se ha levantado temprano. Esperando $SLEEP_TIME segundos hasta las 19:59:58..."
             sleep $SLEEP_TIME
             echo "🚀 ¡Es la hora! Lanzando el bot..."
           else
-            echo "⚠️ El runner va con retraso (ya pasaron las 07:30). Ejecutando inmediatamente."
+            echo "⚠️ El runner va con retraso. Ejecutando inmediatamente."
           fi
           
       - name: Run Aimharderbot
