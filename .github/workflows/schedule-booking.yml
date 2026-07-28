@@ -2,8 +2,8 @@ name: Aimharder Bot Schedule
 
 on:
   schedule:
-    # Levantamos la máquina con margen: 17:55 UTC (19:55h CEST en España)
-    - cron: '55 17 * * *'
+    # Levantamos la máquina con margen: 05:25 UTC (07:25h CEST en España)
+    - cron: '25 5 * * *'
   workflow_dispatch:
 
 jobs:
@@ -73,16 +73,17 @@ jobs:
               json.dump(config_dict, f, indent=2)
           PY
 
-      # ---- EL TRUCO PARA SER EL PRIMERO (PRUEBA A LAS 20:00) ----
+      # ---- EL TRUCO PARA SER EL PRIMERO (PRODUCCIÓN 07:30) ----
       - name: Wait for exact booking time
         run: |
-          # Lanzamos el ataque a las 17:59:58 UTC (19:59:58 en España).
-          TARGET_TIME=$(date -d "17:59:58" +%s)
+          # Lanzamos el ataque a las 05:30:02 UTC (07:30:02 en España).
+          # Damos 2 segundos extra para asegurar que la ventana de reservas ya está abierta en el servidor.
+          TARGET_TIME=$(date -d "05:30:02" +%s)
           CURRENT_TIME=$(date +%s)
           SLEEP_TIME=$((TARGET_TIME - CURRENT_TIME))
           
           if [ $SLEEP_TIME -gt 0 ]; then
-            echo "⏱️ El runner se ha levantado temprano. Esperando $SLEEP_TIME segundos hasta las 19:59:58..."
+            echo "⏱️ El runner se ha levantado temprano. Esperando $SLEEP_TIME segundos hasta las 07:30:02..."
             sleep $SLEEP_TIME
             echo "🚀 ¡Es la hora! Lanzando el bot..."
           else
@@ -93,6 +94,7 @@ jobs:
         run: |
           docker run --rm \
             -e TZ=Europe/Madrid \
+            -e PYTHONUNBUFFERED=1 \
             -v /tmp/aimharderbot-config:/usr/src/app/config \
             --name aimharderbot-scheduled \
             aimharderbot:latest \
