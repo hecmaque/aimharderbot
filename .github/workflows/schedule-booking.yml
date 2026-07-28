@@ -1,60 +1,46 @@
-name: Schedule AimHarder booking
+name: Aimharder Bot Schedule
 
 on:
   schedule:
-    - cron: '6 16 * * *' # every day at 16:06 UTC (18:06 CEST Spain time)
-  workflow_dispatch: {}
+    # 30 5 * * * en UTC equivale a las 07:30h en España (Horario de Verano CEST / UTC+2)
+    # En invierno (CET / UTC+1) deberás cambiarlo a: 30 6 * * *
+    - cron: '30 5 * * *'
+  workflow_dispatch: # Mantiene el botón para ejecutarlo manualmente desde GitHub
 
 jobs:
-  run-booking:
+  run-bot:
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: read
-
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Docker registry
-        if: github.repository_owner == 'hecmaque'
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Docker image
-        run: |
-          docker build -t aimharderbot:latest .
-
-      - name: Run booking container
+      - name: Create config file
         env:
           AIMHARDER_EMAIL: ${{ secrets.AIMHARDER_EMAIL }}
           AIMHARDER_PASSWORD: ${{ secrets.AIMHARDER_PASSWORD }}
-          AIMHARDER_BOX_NAME: ${{ secrets.BOX_NAME }}
-          AIMHARDER_BOX_ID: ${{ secrets.BOX_ID }}
-          AIMHARDER_HOURS_IN_ADVANCE: ${{ secrets.HOURS_IN_ADVANCE }}
-          AIMHARDER_BOOKING_GOALS: ${{ secrets.BOOKING_GOALS }}
+          AIMHARDER_BOX_NAME: ${{ secrets.AIMHARDER_BOX_NAME }}
+          AIMHARDER_BOX_ID: ${{ secrets.AIMHARDER_BOX_ID }}
+          AIMHARDER_HOURS_IN_ADVANCE: ${{ secrets.AIMHARDER_HOURS_IN_ADVANCE }}
+          AIMHARDER_BOOKING_GOALS: ${{ secrets.AIMHARDER_BOOKING_GOALS }}
+          HOURS_IN_ADVANCE: ${{ secrets.HOURS_IN_ADVANCE }}
         run: |
           mkdir -p /tmp/aimharderbot-config
-          python3 <<'PY' > /tmp/aimharderbot-config/example_config.yaml
+          python3 <<'PY'
           import json, os
 
+          def clean_secret(var_name):
+              val = os.environ.get(var_name, '')
+              return val.strip().strip('"').strip("'")
+
           secrets = {
-              'AIMHARDER_EMAIL': os.environ.get('AIMHARDER_EMAIL', '').strip(),
-              'AIMHARDER_PASSWORD': os.environ.get('AIMHARDER_PASSWORD', '').strip(),
-              'AIMHARDER_BOX_NAME': os.environ.get('AIMHARDER_BOX_NAME', '').strip(),
-              'AIMHARDER_BOX_ID': os.environ.get('AIMHARDER_BOX_ID', '').strip(),
-              'AIMHARDER_HOURS_IN_ADVANCE': os.environ.get('AIMHARDER_HOURS_IN_ADVANCE', '').strip(),
-              'AIMHARDER_BOOKING_GOALS': os.environ.get('AIMHARDER_BOOKING_GOALS', '').strip(),
+              'AIMHARDER_EMAIL': clean_secret('AIMHARDER_EMAIL'),
+              'AIMHARDER_PASSWORD': clean_secret('AIMHARDER_PASSWORD'),
+              'AIMHARDER_BOX_NAME': clean_secret('AIMHARDER_BOX_NAME'),
+              'AIMHARDER_BOX_ID': clean_secret('AIMHARDER_BOX_ID'),
+              'AIMHARDER_HOURS_IN_ADVANCE': clean_secret('AIMHARDER_HOURS_IN_ADVANCE'),
+              'AIMHARDER_BOOKING_GOALS': clean_secret('AIMHARDER_BOOKING_GOALS'),
           }
 
           if not secrets['AIMHARDER_HOURS_IN_ADVANCE']:
-              secrets['AIMHARDER_HOURS_IN_ADVANCE'] = os.environ.get('HOURS_IN_ADVANCE', '').strip()
+              secrets['AIMHARDER_HOURS_IN_ADVANCE'] = clean_secret('HOURS_IN_ADVANCE')
 
           missing = [k for k, v in secrets.items() if not v and k != 'AIMHARDER_HOURS_IN_ADVANCE']
           if missing:
@@ -72,24 +58,27 @@ jobs:
           if not isinstance(goals, list) or not goals:
               raise SystemExit("AIMHARDER_BOOKING_GOALS must be a non-empty JSON array.")
 
-          lines = [
-              "user1:",
-              f"  box-name: {secrets['AIMHARDER_BOX_NAME']}",
-              f"  box-id: {secrets['AIMHARDER_BOX_ID']}",
-              f"  email: {secrets['AIMHARDER_EMAIL']}",
-              f"  password: {secrets['AIMHARDER_PASSWORD']}",
-              "  booking-goals:",
-          ]
-          for goal in goals:
-              lines.append(f"    - {goal}")
-          lines.extend([
-              f"  hours-in-advance: {secrets['AIMHARDER_HOURS_IN_ADVANCE']}",
-              "  exceptions: {}",
-          ])
+          config_dict = {
+              "user1": {
+                  "box-name": secrets['AIMHARDER_BOX_NAME'],
+                  "box-id": secrets['AIMHARDER_BOX_ID'],
+                  "email": secrets['AIMHARDER_EMAIL'],
+                  "password": secrets['AIMHARDER_PASSWORD'],
+                  "booking-goals": goals,
+                  "hours-in-advance": int(secrets['AIMHARDER_HOURS_IN_ADVANCE']),
+                  "exceptions": {}
+              }
+          }
+
           with open('/tmp/aimharderbot-config/example_config.yaml', 'w') as f:
-              f.write('\n'.join(lines) + '\n')
+              json.dump(config_dict, f, indent=2)
           PY
-          cat /tmp/aimharderbot-config/example_config.yaml
+
+      - name: Verify generated config
+        run: cat /tmp/aimharderbot-config/example_config.yaml
+
+      - name: Run Aimharderbot
+        run: |
           docker run --rm \
             -v /tmp/aimharderbot-config:/usr/src/app/config \
             --name aimharderbot-scheduled \
