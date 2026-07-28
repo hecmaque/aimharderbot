@@ -16,10 +16,11 @@ jobs:
         env:
           AIMHARDER_EMAIL: ${{ secrets.AIMHARDER_EMAIL }}
           AIMHARDER_PASSWORD: ${{ secrets.AIMHARDER_PASSWORD }}
-          AIMHARDER_BOX_NAME: ${{ secrets.AIMHARDER_BOX_NAME }}
-          AIMHARDER_BOX_ID: ${{ secrets.AIMHARDER_BOX_ID }}
+          # Mapeo corregido a los nombres reales de tus secretos en GitHub
+          AIMHARDER_BOX_NAME: ${{ secrets.BOX_NAME }}
+          AIMHARDER_BOX_ID: ${{ secrets.BOX_ID }}
+          AIMHARDER_BOOKING_GOALS: ${{ secrets.BOOKING_GOALS }}
           AIMHARDER_HOURS_IN_ADVANCE: ${{ secrets.AIMHARDER_HOURS_IN_ADVANCE }}
-          AIMHARDER_BOOKING_GOALS: ${{ secrets.AIMHARDER_BOOKING_GOALS }}
           HOURS_IN_ADVANCE: ${{ secrets.HOURS_IN_ADVANCE }}
         run: |
           mkdir -p /tmp/aimharderbot-config
