@@ -93,6 +93,7 @@ jobs:
       - name: Run Aimharderbot
         run: |
           docker run --rm \
+            -e TZ=Europe/Madrid \
             -v /tmp/aimharderbot-config:/usr/src/app/config \
             --name aimharderbot-scheduled \
             aimharderbot:latest \
