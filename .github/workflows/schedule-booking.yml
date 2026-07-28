@@ -2,25 +2,21 @@ name: Aimharder Bot Schedule
 
 on:
   schedule:
-    # 30 5 * * * en UTC equivale a las 07:30h en España (Horario de Verano CEST / UTC+2)
-    # En invierno (CET / UTC+1) deberás cambiarlo a: 30 6 * * *
-    - cron: '30 5 * * *'
-  workflow_dispatch: # Mantiene el botón para ejecutarlo manualmente desde GitHub
+    # Levantamos la máquina con margen: 05:25 UTC (07:25h CEST en España)
+    - cron: '25 5 * * *'
+  workflow_dispatch:
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Descargamos el código de tu repositorio a la máquina virtual
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Construimos la imagen Docker usando el Dockerfile de tu repositorio
       - name: Build Docker image
         run: docker build -t aimharderbot:latest .
 
-      # 3. Creamos el archivo de configuración
       - name: Create config file
         env:
           AIMHARDER_EMAIL: ${{ secrets.AIMHARDER_EMAIL }}
@@ -51,21 +47,10 @@ jobs:
           if not secrets['AIMHARDER_HOURS_IN_ADVANCE']:
               secrets['AIMHARDER_HOURS_IN_ADVANCE'] = clean_secret('HOURS_IN_ADVANCE')
 
-          missing = [k for k, v in secrets.items() if not v and k != 'AIMHARDER_HOURS_IN_ADVANCE']
-          if missing:
-              raise SystemExit(f"Missing secrets: {', '.join(missing)}")
-
-          if not secrets['AIMHARDER_HOURS_IN_ADVANCE']:
-              print('WARNING: HOURS_IN_ADVANCE secret not found; using default 24')
-              secrets['AIMHARDER_HOURS_IN_ADVANCE'] = '24'
-
           try:
               goals = json.loads(secrets['AIMHARDER_BOOKING_GOALS'])
           except json.JSONDecodeError as ex:
               raise SystemExit(f"AIMHARDER_BOOKING_GOALS is not valid JSON: {ex.msg}")
-
-          if not isinstance(goals, list) or not goals:
-              raise SystemExit("AIMHARDER_BOOKING_GOALS must be a non-empty JSON array.")
 
           config_dict = {
               "user1": {
@@ -83,11 +68,23 @@ jobs:
               json.dump(config_dict, f, indent=2)
           PY
 
-      # 4. Verificamos que se haya generado correctamente
-      - name: Verify generated config
-        run: cat /tmp/aimharderbot-config/example_config.yaml
-
-      # 5. Ejecutamos el contenedor con la imagen que acabamos de construir
+      # ---- EL TRUCO PARA SER EL PRIMERO ----
+      - name: Wait for exact booking time
+        run: |
+          # Queremos lanzar el ataque a las 05:29:58 UTC (07:29:58 en España).
+          # Damos 2 segundos de margen para que Docker arranque.
+          TARGET_TIME=$(date -d "05:29:58" +%s)
+          CURRENT_TIME=$(date +%s)
+          SLEEP_TIME=$((TARGET_TIME - CURRENT_TIME))
+          
+          if [ $SLEEP_TIME -gt 0 ]; then
+            echo "⏱️ El runner se ha levantado temprano. Esperando $SLEEP_TIME segundos hasta las 07:29:58..."
+            sleep $SLEEP_TIME
+            echo "🚀 ¡Es la hora! Lanzando el bot..."
+          else
+            echo "⚠️ El runner va con retraso (ya pasaron las 07:30). Ejecutando inmediatamente."
+          fi
+          
       - name: Run Aimharderbot
         run: |
           docker run --rm \
