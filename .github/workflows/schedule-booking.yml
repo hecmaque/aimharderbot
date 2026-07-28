@@ -12,11 +12,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Descargamos el código de tu repositorio a la máquina virtual
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Construimos la imagen Docker usando el Dockerfile de tu repositorio
+      - name: Build Docker image
+        run: docker build -t aimharderbot:latest .
+
+      # 3. Creamos el archivo de configuración
       - name: Create config file
         env:
           AIMHARDER_EMAIL: ${{ secrets.AIMHARDER_EMAIL }}
           AIMHARDER_PASSWORD: ${{ secrets.AIMHARDER_PASSWORD }}
-          # Mapeo corregido a los nombres reales de tus secretos en GitHub
           AIMHARDER_BOX_NAME: ${{ secrets.BOX_NAME }}
           AIMHARDER_BOX_ID: ${{ secrets.BOX_ID }}
           AIMHARDER_BOOKING_GOALS: ${{ secrets.BOOKING_GOALS }}
@@ -75,9 +83,11 @@ jobs:
               json.dump(config_dict, f, indent=2)
           PY
 
+      # 4. Verificamos que se haya generado correctamente
       - name: Verify generated config
         run: cat /tmp/aimharderbot-config/example_config.yaml
 
+      # 5. Ejecutamos el contenedor con la imagen que acabamos de construir
       - name: Run Aimharderbot
         run: |
           docker run --rm \
