@@ -20,10 +20,12 @@ class AimHarderClient:
         self.logger = logging.getLogger('aimharder-bot')
         self.box_id = box_id
         self.box_name = box_name
+        print(f"🛠️ [TRAZA-CLIENTE] Inicializando cliente AimHarder para Box: {box_name} (ID: {box_id})")
         self.session = self._login(email, password, box_name)
 
     @staticmethod
     def _login(email: str, password: str, box_name: str):
+        print(f"🔑 [TRAZA-CLIENTE] Intentando hacer login con el usuario: {email}")
         session = Session()
         session.headers.update({
             "Accept": "application/json",
@@ -64,7 +66,10 @@ class AimHarderClient:
                     break
 
         if not amhrdrauth:
+            print("❌ [TRAZA-CLIENTE] Falló la extracción de la cookie 'amhrdrauth'. Credenciales incorrectas o bloqueo de Aimharder.")
             raise IncorrectCredentials
+            
+        print("✅ [TRAZA-CLIENTE] Login exitoso. Cookie de sesión capturada correctamente.")
 
         session.cookies.set("amhrdrauth", amhrdrauth, domain="aimharder.com")
 
@@ -80,29 +85,56 @@ class AimHarderClient:
         return session
 
     def get_classes(self, target_day: datetime):
+        endpoint = classes_endpoint(self.box_name)
+        day_str = target_day.strftime("%Y%m%d")
+        print(f"📡 [TRAZA-CLIENTE] Solicitando clases para el día {day_str} al endpoint: {endpoint}")
+        
         response = self.session.get(
-            classes_endpoint(self.box_name),
+            endpoint,
             params={
                 "box": self.box_id,
-                "day": target_day.strftime("%Y%m%d"),
+                "day": day_str,
                 "familyId": "",
             },
         )
-        bookings = response.json().get("bookings", [])
+        
+        response_json = response.json()
+        bookings = response_json.get("bookings", [])
+        
+        print(f"📥 [TRAZA-CLIENTE] La API de Aimharder devolvió {len(bookings)} clases programadas.")
+        print("   --- INICIO DEL LISTADO DE CLASES REALES (API AIMHARDER) ---")
+        
         self.logger.info(f"Retrieved {len(bookings)} classes for day {target_day.strftime('%Y-%m-%d')}")
+        
         for booking in bookings:
+            timeid = booking.get("timeid")
+            classname = booking.get("className")
+            bookstate = booking.get("bookState")
+            ocupation = booking.get("ocupation")
+            limit = booking.get("limit")
+            
+            # Imprimimos cada clase por pantalla para ver exactamente cómo se llaman y qué hora tienen
+            print(f"   🗓️ Hora (timeid): '{timeid}' | Nombre (className): '{classname}' | Estado: {bookstate} | Ocupación: {ocupation}/{limit}")
+            
             self.logger.debug(
                 "Class: id=%s timeid=%s name=%s bookState=%s ocupation=%s limit=%s",
                 booking.get("id"),
-                booking.get("timeid"),
-                booking.get("className"),
-                booking.get("bookState"),
-                booking.get("ocupation"),
-                booking.get("limit"),
+                timeid,
+                classname,
+                bookstate,
+                ocupation,
+                limit,
             )
+            
+        print("   --- FIN DEL LISTADO DE CLASES ---")
         return bookings
 
     def book_class(self, target_day: datetime, target_class: str) -> bool:
+        day_str = target_day.strftime("%Y%m%d")
+        class_id = target_class["id"]
+        
+        print(f"🖱️ [TRAZA-CLIENTE] Enviando petición POST para reservar la clase ID: {class_id} el día {day_str}")
+        
         response = self.session.post(
             book_endpoint(self.box_name),
             headers={
@@ -111,39 +143,51 @@ class AimHarderClient:
                 "Priority": "u=1, i",
             },
             data={
-                "id": target_class["id"],
-                "day": target_day.strftime("%Y%m%d"),
+                "id": class_id,
+                "day": day_str,
                 "insist": 0,
                 "familyId": "",
             },
         )
+        
         if response.status_code == HTTPStatus.OK:
-            response = response.json()
-            if "bookState" in response and response["bookState"] == -1:
+            response_json = response.json()
+            print(f"📬 [TRAZA-CLIENTE] Respuesta del servidor al intentar reservar: {response_json}")
+            
+            if "bookState" in response_json and response_json["bookState"] == -1:
+                print("❌ [TRAZA-CLIENTE] Fallo: Lista de espera superada (-1).")
                 self.logger.error(f"Booking unsuccessful. Max capacity of the waiting list overpassed.")
                 raise BookingFailed(MESSAGE_BOOKING_FAILED_MAX_WAIT_CAPACITY)
             
-            if "bookState" in response and response["bookState"] == -2:
+            if "bookState" in response_json and response_json["bookState"] == -2:
+                print("❌ [TRAZA-CLIENTE] Fallo: Límite de créditos/sesiones alcanzado (-2).")
                 self.logger.error(f"Booking unsuccessful. There is no available credits. Max number of booked sessions reached.")
                 raise BookingFailed(MESSAGE_BOOKING_FAILED_NO_CREDIT)
             
-            if "bookState" in response and response["bookState"] == -12:               
-                if response["errorMssgLang"] == "ERROR_ANTELACION_CLIENTE_HORAS":
+            if "bookState" in response_json and response_json["bookState"] == -12:               
+                if response_json.get("errorMssgLang") == "ERROR_ANTELACION_CLIENTE_HORAS":
+                    print("❌ [TRAZA-CLIENTE] Fallo: Demasiado pronto para reservar (ERROR_ANTELACION_CLIENTE_HORAS).")
                     self.logger.error(f"Booking unsuccessful. Too early to book this class.")
                     raise TooEarly(target_day)
-                elif response["errorMssgLang"] == "NOPUEDESRESERVAMISMAHORA":
+                elif response_json.get("errorMssgLang") == "NOPUEDESRESERVAMISMAHORA":
+                    print("❌ [TRAZA-CLIENTE] Fallo: Intentando reservar a la misma hora dos veces (NOPUEDESRESERVAMISMAHORA).")
                     self.logger.error(f"Booking unsuccessful. You cannot book the same session twice.")
                     raise AlreadyBooked(target_day)
+                else:
+                    print(f"❌ [TRAZA-CLIENTE] Fallo -12 desconocido: {response_json.get('errorMssgLang')}")
                 
-            if "errorMssg" not in response and "errorMssgLang" not in response:
+            if "errorMssg" not in response_json and "errorMssgLang" not in response_json:
                 # booking successful
+                print("🎉 [TRAZA-CLIENTE] ¡Respuesta limpia! La reserva se ha confirmado.")
                 self.logger.info(f"Booking completed successfully.")
                 return True
             
+        print(f"🚨 [TRAZA-CLIENTE] Código HTTP Inesperado ({response.status_code}) o error desconocido.")
         self.logger.error(f"UNKNOWN ERROR!!!!!.")
         raise BookingFailed(MESSAGE_BOOKING_FAILED_UNKNOWN)
     
     def cancel_booked_class(self, target_class: str) -> bool:
+        print(f"🗑️ [TRAZA-CLIENTE] Intentando cancelar la clase ID: {target_class['id']}")
         response = self.session.post(
             classes_endpoint(self.box_name),
             data={
@@ -153,10 +197,13 @@ class AimHarderClient:
             },
         )
         if response.status_code == HTTPStatus.OK:
-            response = response.json()
-            if "errorMssg" not in response and "errorMssgLang" not in response:
+            response_json = response.json()
+            if "errorMssg" not in response_json and "errorMssgLang" not in response_json:
                 # booking cancellation successful
+                print("✅ [TRAZA-CLIENTE] Clase cancelada con éxito.")
                 self.logger.info(f"Booking cancelled successfully.")
                 return True
+                
+        print("❌ [TRAZA-CLIENTE] Error desconocido al intentar cancelar la clase.")
         self.logger.error(f"UNKNOWN ERROR!!!!!.")
         raise BookingFailed(MESSAGE_BOOKING_FAILED_UNKNOWN)
