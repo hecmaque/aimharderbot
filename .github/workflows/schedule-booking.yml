@@ -70,21 +70,39 @@ jobs:
               json.dump(config_dict, f, indent=2)
           PY
 
-      # ---- EL TRUCO PARA SER EL PRIMERO (PRODUCCIÓN 07:30) ----
+      # ---- EL TRUCO PARA SER EL PRIMERO (DINÁMICO) ----
       - name: Wait for exact booking time
         run: |
-          # Lanzamos el ataque a las 05:30:02 UTC (07:30:02 en España).
-          # Damos 2 segundos extra para asegurar que la ventana de reservas ya está abierta en el servidor.
-          TARGET_TIME=$(date -d "05:30:02" +%s)
+          # Fijamos la zona horaria a España para el cálculo de bash
+          export TZ="Europe/Madrid"
+          
+          # Obtenemos el minuto actual para saber si apuntamos a "en punto" o "y media"
+          CURRENT_MIN=$(date +%M)
+          
+          if [ "$CURRENT_MIN" -ge 45 ]; then
+            # Si se levanta entre :45 y :59 (ej. 16:59), el objetivo es la próxima hora en punto
+            TARGET_DATE="$(date -d '1 hour' +'%Y-%m-%d %H:00:02')"
+          elif [ "$CURRENT_MIN" -ge 15 ] && [ "$CURRENT_MIN" -lt 30 ]; then
+            # Si se levanta entre :15 y :29 (ej. 07:29), el objetivo es a y media de esta hora
+            TARGET_DATE="$(date +'%Y-%m-%d %H:30:02')"
+          else
+            # Si se dispara fuera de ventanas lógicas de espera, ejecuta inmediatamente
+            TARGET_DATE="$(date +'%Y-%m-%d %H:%M:%S')"
+          fi
+          
+          TARGET_TIME=$(date -d "$TARGET_DATE" +%s)
           CURRENT_TIME=$(date +%s)
           SLEEP_TIME=$((TARGET_TIME - CURRENT_TIME))
           
+          echo "Hora de levantamiento del WF (Madrid): $(date +'%Y-%m-%d %H:%M:%S')"
+          echo "Hora objetivo calculada dinámicamente: $TARGET_DATE"
+          
           if [ $SLEEP_TIME -gt 0 ]; then
-            echo "⏱️ El runner se ha levantado temprano. Esperando $SLEEP_TIME segundos hasta las 07:30:02..."
+            echo "⏱️ Esperando $SLEEP_TIME segundos hasta la hora exacta..."
             sleep $SLEEP_TIME
             echo "🚀 ¡Es la hora! Lanzando el bot..."
           else
-            echo "⚠️ El runner va con retraso. Ejecutando inmediatamente."
+            echo "⚠️ Ejecutando inmediatamente."
           fi
           
       - name: Run Aimharderbot
