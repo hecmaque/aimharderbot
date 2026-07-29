@@ -105,18 +105,17 @@ jobs:
             echo "⚠️ Ejecutando inmediatamente."
           fi
           
-      - name: Run Aimharderbot (TRAZA EXTREMA)
+      - name: Run Aimharderbot (MODO DEBUG)
         run: |
           echo "==== VERIFICANDO EL ARCHIVO DE CONFIGURACIÓN ===="
           cat /tmp/aimharderbot-config/example_config.yaml
           echo "==================================================="
           
-          # Ejecución con traza línea a línea usando el módulo trace de Python
+          # Ajustamos la ruta para que busque dentro de la carpeta 'config/'
           docker run --rm \
             -e TZ=Europe/Madrid \
             -e PYTHONUNBUFFERED=1 \
             -v /tmp/aimharderbot-config:/usr/src/app/config \
-            --entrypoint python \
             --name aimharderbot-scheduled \
             aimharderbot:latest \
-            -m trace --trace src/main.py --config-filename='config/example_config.yaml'
+            --config-filename='config/example_config.yaml'
